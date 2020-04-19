@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "ml6.h"
 #include "display.h"
@@ -57,6 +58,7 @@ void add_polygon( struct matrix *polygons,
   lines connecting each points to create bounding triangles
   ====================*/
 void draw_polygons( struct matrix *polygons, screen s, zbuffer zb, color c ) {
+  printf("------------------------------------------\n");
   if ( polygons->lastcol < 3 ) {
     printf("Need at least 3 points to draw a polygon!\n");
     return;
@@ -65,33 +67,131 @@ void draw_polygons( struct matrix *polygons, screen s, zbuffer zb, color c ) {
   int point;
   double *normal;
 
-  for (point=0; point < polygons->lastcol-2; point+=3) {
+  // 0 to 1257
+  for (point=0; point < polygons->lastcol - 2; point+=3) {
 
     normal = calculate_normal(polygons, point);
 
     if ( normal[2] > 0 ) {
 
-      draw_line( polygons->m[0][point],
-                 polygons->m[1][point],
-                 polygons->m[2][point],
-                 polygons->m[0][point+1],
-                 polygons->m[1][point+1],
-                 polygons->m[2][point+1],
-                 s, zb, c);
-      draw_line( polygons->m[0][point+2],
-                 polygons->m[1][point+2],
-                 polygons->m[2][point+2],
-                 polygons->m[0][point+1],
-                 polygons->m[1][point+1],
-                 polygons->m[2][point+1],
-                 s, zb, c);
-      draw_line( polygons->m[0][point],
-                 polygons->m[1][point],
-                 polygons->m[2][point],
-                 polygons->m[0][point+2],
-                 polygons->m[1][point+2],
-                 polygons->m[2][point+2],
-                 s, zb, c);
+      c.red = rand() % 256;
+      c.green = rand() % 256;
+      c.blue = rand() % 256;
+      // c.red = point * 3;
+      // c.green = point * 4;
+      // c.blue = point * 5;
+
+      if (point > polygons->lastcol / 4) {
+        c.red = 0;
+        c.blue = 128;
+      }
+
+
+      int y0;
+      int y1;
+      int y2;
+      int bottom;
+      int middle;
+      int top;
+      int temp;
+
+      y0 = polygons->m[1][point];
+      y1 = polygons->m[1][point+1];
+      y2 = polygons->m[1][point+2];
+
+      if (y0 >= y1 && y0 >= y2) {
+        top = point; // top point is the one that corresponds to y0 in this case
+        middle = point + 1; // assume y1 is middle, change later if wrong
+        bottom = point + 2;
+      }
+      else if (y1 >= y0 && y1 >= y2) {
+        top = point + 1;
+        middle = point;
+        bottom = point + 2;
+      }
+      else {
+        top = point + 2;
+        middle = point + 1;
+        bottom = point;
+      }
+
+      if (polygons->m[1][bottom] > polygons->m[1][middle]) {
+        temp = bottom;
+        bottom = middle;
+        middle = temp;
+      }
+
+      int x_bottom, x_mid, x_top, y_bottom, y_mid, y_top, z_bottom, z_mid, z_top;
+      double x0, x1, y, z0, z1, dx0, dx1, dx1_1, dz0, dz1, dz1_1;
+
+      x_bottom = polygons->m[0][bottom];
+      x_mid = polygons->m[0][middle];
+      x_top = polygons->m[0][top];
+
+      y_bottom = polygons->m[1][bottom];
+      y_mid = polygons->m[1][middle];
+      y_top = polygons->m[1][top];
+
+      z_bottom = polygons->m[2][bottom];
+      z_mid = polygons->m[2][middle];
+      z_top = polygons->m[2][top];
+
+      printf("Point: %d\n", point);
+      printf("(%d, %d, %d)  (%d, %d, %d)  (%d, %d, %d)\n",
+               x_bottom, y_bottom, z_bottom, x_mid, y_mid, z_mid, x_top, y_top, z_top);
+
+      x0 = x_bottom;
+      z0 = z_bottom;
+
+      x1 = x_bottom;
+      z1 = z_bottom;
+
+      y = y_bottom;
+
+      dx0 = (double)(x_top - x_bottom) / (double)(y_top - y_bottom);
+      dz0 = (double)(z_top - z_bottom) / (double)(y_top - y_bottom);
+
+      if (y_bottom == y_mid) {
+        x1 = x_mid;
+        z1 = z_mid;
+
+        dx1_1 = (x_top - x_mid) / (double)(y_top - y_mid);
+        dx1 = dx1_1;
+
+        dz1_1 = (z_top - z_mid) / (double)(y_top - y_mid);
+        dz1 = dz1_1;
+      }
+
+      else if (y_mid == y_top) {
+        dx1 = (x_mid - x_bottom) / (double)(y_mid - y_bottom);
+        dx1_1 = dx1;
+
+        dz1 = (z_mid - z_bottom) / (double)(y_mid - y_bottom);
+        dz1_1 = dz1;
+      }
+
+      else {
+        dx1 = (x_mid - x_bottom) / (double)(y_mid - y_bottom);
+        dx1_1 = (x_top - x_mid) / (double)(y_top - y_mid);
+
+        dz1 = (z_mid - z_bottom) / (double)(y_mid - y_bottom);
+        dz1_1 = (z_top - z_mid) / (double)(y_top - y_mid);
+      }
+      //
+      // if (point == 36) {
+      //   printf("%d %lf %d\n", y_bottom, y, y_top);
+      // }
+      // printf("NEW POLYGON\n");
+      for (y = y_bottom; y <= y_top; y++, x0 += dx0, x1 += dx1, z0 += dz0, z1 += dz1) {
+          printf("(%lf, %lf, %lf) to (%lf, %lf, %lf)\n", x0, y, z0, x1, y, z1);
+          draw_line(x0, y, z0, x1, y, z1, s, zb, c);
+          if (y >= y_mid) {
+              dx1 = dx1_1;
+              dz1 = dz1_1;
+            }
+      }
+
+
     }
   }
 }
@@ -294,7 +394,7 @@ struct matrix * generate_sphere(double cx, double cy, double cz,
 
   should call generate_torus to create the necessary points
   ====================*/
-void add_torus( struct matrix * edges, 
+void add_torus( struct matrix * edges,
                 double cx, double cy, double cz,
                 double r1, double r2, int step ) {
 
@@ -432,10 +532,10 @@ of type specified in type (see matrix.h for curve type constants)
 to the matrix edges
 ====================*/
 void add_curve( struct matrix *edges,
-                double x0, double y0, 
-                double x1, double y1, 
-                double x2, double y2, 
-                double x3, double y3, 
+                double x0, double y0,
+                double x1, double y1,
+                double x2, double y2,
+                double x3, double y3,
                 int step, int type ) {
   double t, x, y;
   int i;
@@ -444,11 +544,11 @@ void add_curve( struct matrix *edges,
 
   xcoefs = generate_curve_coefs(x0, x1, x2, x3, type);
   ycoefs = generate_curve_coefs(y0, y1, y2, y3, type);
-  
+
   /* print_matrix(xcoefs); */
   /* printf("\n"); */
   /* print_matrix(ycoefs); */
-  
+
   for (i=1; i<=step; i++) {
     t = (double)i/step;
 
@@ -472,8 +572,8 @@ void add_curve( struct matrix *edges,
 Inputs:   struct matrix * points
          int x
          int y
-         int z 
-Returns: 
+         int z
+Returns:
 adds point (x, y, z) to points and increment points.lastcol
 if points is full, should call grow on points
 ====================*/
@@ -481,7 +581,7 @@ void add_point( struct matrix * points, double x, double y, double z) {
 
   if ( points->lastcol == points->cols )
     grow_matrix( points, points->lastcol + 100 );
-  
+
   points->m[0][ points->lastcol ] = x;
   points->m[1][ points->lastcol ] = y;
   points->m[2][ points->lastcol ] = z;
@@ -492,12 +592,12 @@ void add_point( struct matrix * points, double x, double y, double z) {
 /*======== void add_edge() ==========
 Inputs:   struct matrix * points
           int x0, int y0, int z0, int x1, int y1, int z1
-Returns: 
+Returns:
 add the line connecting (x0, y0, z0) to (x1, y1, z1) to points
 should use add_point
 ====================*/
-void add_edge( struct matrix * points, 
-	       double x0, double y0, double z0, 
+void add_edge( struct matrix * points,
+	       double x0, double y0, double z0,
 	       double x1, double y1, double z1) {
   add_point( points, x0, y0, z0 );
   add_point( points, x1, y1, z1 );
@@ -506,8 +606,8 @@ void add_edge( struct matrix * points,
 /*======== void draw_lines() ==========
 Inputs:   struct matrix * points
          screen s
-         color c 
-Returns: 
+         color c
+Returns:
 Go through points 2 at a time and call draw_line to add that line
 to the screen
 ====================*/
@@ -529,94 +629,207 @@ void draw_lines( struct matrix * points, screen s, zbuffer zb, color c) {
               s, zb, c);
 }// end draw_lines
 
+void draw_line(int x0, int y0, double z0, int x1, int y1, double z1, screen s, zbuffer zb, color c) {
+    int temp;
+    double temp_z;
 
-void draw_line(int x0, int y0, double z0,
-               int x1, int y1, double z1,
-               screen s, zbuffer zb, color c) {
+    if (x0 > x1) {
+        temp = x0;
+        x0 = x1;
+        x1 = temp;
 
+        temp = y0;
+        y0 = y1;
+        y1 = temp;
 
-
-  int x, y, d, A, B;
-  int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast;
-  int loop_start, loop_end;
-
-  //swap points if going right -> left
-  int xt, yt;
-  if (x0 > x1) {
-    xt = x0;
-    yt = y0;
-    x0 = x1;
-    y0 = y1;
-    z0 = z1;
-    x1 = xt;
-    y1 = yt;
-  }
-
-  x = x0;
-  y = y0;
-  A = 2 * (y1 - y0);
-  B = -2 * (x1 - x0);
-  int wide = 0;
-  int tall = 0;
-  //octants 1 and 8
-  if ( abs(x1 - x0) >= abs(y1 - y0) ) { //octant 1/8
-    wide = 1;
-    loop_start = x;
-    loop_end = x1;
-    dx_east = dx_northeast = 1;
-    dy_east = 0;
-    d_east = A;
-    if ( A > 0 ) { //octant 1
-      d = A + B/2;
-      dy_northeast = 1;
-      d_northeast = A + B;
+        temp_z = z0;
+        z0 = z1;
+        z1 = temp_z;
     }
-    else { //octant 8
-      d = A - B/2;
-      dy_northeast = -1;
-      d_northeast = A - B;
-    }
-  }//end octant 1/8
-  else { //octant 2/7
-    tall = 1;
-    dx_east = 0;
-    dx_northeast = 1;
-    if ( A > 0 ) {     //octant 2
-      d = A/2 + B;
-      dy_east = dy_northeast = 1;
-      d_northeast = A + B;
-      d_east = B;
-      loop_start = y;
-      loop_end = y1;
-    }
-    else {     //octant 7
-      d = A/2 - B;
-      dy_east = dy_northeast = -1;
-      d_northeast = A - B;
-      d_east = -1 * B;
-      loop_start = y1;
-      loop_end = y;
-    }
-  }
 
-  while ( loop_start < loop_end ) {
+    int x = x0;
+    int y = y0;
+    double z = z0;
+    double dz;
 
-    plot( s, zb, c, x, y, 0);
-    if ( (wide && ((A > 0 && d > 0) ||
-                   (A < 0 && d < 0)))
-         ||
-         (tall && ((A > 0 && d < 0 ) ||
-                   (A < 0 && d > 0) ))) {
-      y+= dy_northeast;
-      d+= d_northeast;
-      x+= dx_northeast;
+    int a = y1 - y0;
+    int b = x0 - x1;
+
+    // octants 1, 5
+    if (a > 0 && a <= -b) {
+        // printf("(%d, %d) to (%d, %d)\n", x0, y0, x1, y1);
+        int d = 2 * a + b;
+
+        a *= 2;
+        b *= 2;
+
+        dz = (z1 - z0) / (x1 - x0);
+
+        while (x < x1) {
+            plot(s, zb, c, x, y, z);
+            if (d > 0) {
+                y++;
+                d += b;
+            }
+            x++;
+            z += dz;
+            d += a;
+        }
     }
+
+    // octants 2, 6
+    else if (a > -b) {
+
+        int d = a + 2 * b;
+
+        a *= 2;
+        b *= 2;
+
+        dz = (z1 - z0) / (y1 - y0);
+
+        while (y < y1) {
+          plot(s, zb, c, x, y, z);
+            if (d < 0) {
+                x++;
+                d += a;
+            }
+            y++;
+            z += dz;
+            d += b;
+        }
+    }
+
+    // octants 3, 7
+    else if (a < b) {
+
+        int d = a + -2 * b;
+
+        a *= 2;
+        b *= 2;
+
+        dz = (z1 - z0) / (x1 - x0);
+
+        while (y > y1) {
+          plot(s, zb, c, x, y, z);
+            if (d > 0) {
+
+                x++;
+                d += a;
+            }
+            y--;
+            z += dz;
+            d -= b;
+        }
+    }
+
+    // octants 4, 8
     else {
-      x+= dx_east;
-      y+= dy_east;
-      d+= d_east;
+
+        int d = 2 * a - b;
+
+        a *= 2;
+        b *= 2;
+
+        dz = (z1 - z0) / (x1 - x0);
+
+        while (x < x1) {
+          plot(s, zb, c, x, y, z);
+            if (d < 0) {
+                y--;
+                d -= b;
+            }
+            x++;
+            z += dz;
+            d += a;
+        }
     }
-    loop_start++;
-  } //end drawing loop
-  plot( s, zb, c, x1, y1, 0 );
-} //end draw_line
+}
+// void draw_line(int x0, int y0, double z0,
+//                int x1, int y1, double z1,
+//                screen s, zbuffer zb, color c) {
+//
+//
+//   int x, y, d, A, B;
+//   int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast;
+//   int loop_start, loop_end;
+//
+//   //swap points if going right -> left
+//   int xt, yt;
+//   if (x0 > x1) {
+//     xt = x0;
+//     yt = y0;
+//     x0 = x1;
+//     y0 = y1;
+//     z0 = z1;
+//     x1 = xt;
+//     y1 = yt;
+//   }
+//
+//   x = x0;
+//   y = y0;
+//   A = 2 * (y1 - y0);
+//   B = -2 * (x1 - x0);
+//   int wide = 0;
+//   int tall = 0;
+//   //octants 1 and 8
+//   if ( abs(x1 - x0) >= abs(y1 - y0) ) { //octant 1/8
+//     wide = 1;
+//     loop_start = x;
+//     loop_end = x1;
+//     dx_east = dx_northeast = 1;
+//     dy_east = 0;
+//     d_east = A;
+//     if ( A > 0 ) { //octant 1
+//       d = A + B/2;
+//       dy_northeast = 1;
+//       d_northeast = A + B;
+//     }
+//     else { //octant 8
+//       d = A - B/2;
+//       dy_northeast = -1;
+//       d_northeast = A - B;
+//     }
+//   }//end octant 1/8
+//   else { //octant 2/7
+//     tall = 1;
+//     dx_east = 0;
+//     dx_northeast = 1;
+//     if ( A > 0 ) {     //octant 2
+//       d = A/2 + B;
+//       dy_east = dy_northeast = 1;
+//       d_northeast = A + B;
+//       d_east = B;
+//       loop_start = y;
+//       loop_end = y1;
+//     }
+//     else {     //octant 7
+//       d = A/2 - B;
+//       dy_east = dy_northeast = -1;
+//       d_northeast = A - B;
+//       d_east = -1 * B;
+//       loop_start = y1;
+//       loop_end = y;
+//     }
+//   }
+//
+//   while ( loop_start < loop_end ) {
+//
+//     plot( s, zb, c, x, y, 0);
+//     if ( (wide && ((A > 0 && d > 0) ||
+//                    (A < 0 && d < 0)))
+//          ||
+//          (tall && ((A > 0 && d < 0 ) ||
+//                    (A < 0 && d > 0) ))) {
+//       y+= dy_northeast;
+//       d+= d_northeast;
+//       x+= dx_northeast;
+//     }
+//     else {
+//       x+= dx_east;
+//       y+= dy_east;
+//       d+= d_east;
+//     }
+//     loop_start++;
+//   } //end drawing loop
+//   plot( s, zb, c, x1, y1, 0 );
+// } //end draw_line

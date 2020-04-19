@@ -1,5 +1,5 @@
 /*====================== display.c ========================
-Contains functions for basic manipulation of a screen 
+Contains functions for basic manipulation of a screen
 represented as a 2 dimensional array of colors.
 
 A color is an ordered triple of ints, with each value standing
@@ -34,8 +34,9 @@ dw
 ====================*/
 void plot( screen s, zbuffer zb, color c, int x, int y, double z) {
   int newy = YRES - 1 - y;
-  if ( x >= 0 && x < XRES && newy >=0 && newy < YRES )
+  if ( x >= 0 && x < XRES && newy >=0 && newy < YRES && z > zb[x][newy])
     s[x][newy] = c;
+    zb[x][newy] = z;
 }
 
 /*======== void clear_screen() ==========
@@ -76,8 +77,8 @@ void clear_zbuffer( zbuffer zb ) {
 
 /*======== void save_ppm() ==========
 Inputs:   screen s
-         char *file 
-Returns: 
+         char *file
+Returns:
 Saves screen s as a valid ppm file using the settings in ml6.h
 ====================*/
 void save_ppm( screen s, char *file) {
@@ -103,8 +104,8 @@ void save_ppm( screen s, char *file) {
 
 /*======== void save_ppm_ascii() ==========
 Inputs:   screen s
-         char *file 
-Returns: 
+         char *file
+Returns:
 Saves screen s as a valid ppm file using the
 settings in ml6.h
 ====================*/
